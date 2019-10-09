@@ -87,7 +87,7 @@ def process_errors(y_test, y_hat, e_s, anom, logger):
         num_windows = int((y_test.shape[0] - (config.batch_size * window_size)) / config.batch_size)
         if window_size == 1 and num_windows < 0:
             raise ValueError("Batch_size (%s) larger than y_test (len=%s). Adjust in config.yaml." % (
-            config.batch_size, y_test.shape[0]))
+                config.batch_size, y_test.shape[0]))
 
     # Identify anomalies for each new batch of values
     for i in range(1, num_windows + 2):
@@ -420,3 +420,4 @@ def evaluate_sequences_new_metric(E_seq, anom, logger):
         values_predicted[seg[0]:seg[1]] = 1
     precision, recall, f1 = metric.score(values_real, values_predicted)
     logger.info(f'Precision: {precision}, recall: {recall}, f1: {f1}')
+    return precision, recall, f1
