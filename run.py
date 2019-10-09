@@ -40,29 +40,33 @@ def run(config, _id, logger):
     with open("labeled_anomalies.csv", "rU") as f:
         reader = csv.DictReader(f)
 
-        with open("results/%s.csv" %_id, "a") as out:
+        with open("results/%s.csv" % _id, "a") as out:
 
-            writer = csv.DictWriter(out, config.header) # line by line results written to csv
+            writer = csv.DictWriter(out, config.header)  # line by line results written to csv
             writer.writeheader()
-        
+            mean_precision = 0
+            mean_recall = 0
+            mean_f1 = 0
+            num_streams = 0
             for i, anom in enumerate(reader):
                 if reader.line_num >= 1:
-
+                    num_streams += 1
                     anom['run_id'] = _id
-                    logger.info("Stream # %s: %s" %(reader.line_num-1, anom['chan_id']))
+                    logger.info("Stream # %s: %s" % (reader.line_num - 1, anom['chan_id']))
                     model = None
 
                     X_train, y_train, X_test, y_test = helpers.load_data(anom)
-                    
+
                     # Generate or load predictions
                     # ===============================
                     y_hat = []
                     if config.predict:
                         model = models.get_model(anom, X_train, y_train, logger, train=config.train)
                         y_hat = models.predict_in_batches(y_test, X_test, model, anom)
-                            
+
                     else:
-                        y_hat = [float(x) for x in list(np.load(os.path.join("data", config.use_id, "y_hat", anom["chan_id"] + ".npy")))]
+                        y_hat = [float(x) for x in
+                                 list(np.load(os.path.join("data", config.use_id, "y_hat", anom["chan_id"] + ".npy")))]
 
                     # Error calculations
                     # ====================================================================================================
@@ -70,7 +74,7 @@ def run(config, _id, logger):
                     e_s = err.get_errors(y_test, y_hat, anom, smoothed=True)
 
                     anom["normalized_error"] = np.mean(e) / np.ptp(y_test)
-                    logger.info("normalized prediction error: %s" %anom["normalized_error"])
+                    logger.info("normalized prediction error: %s" % anom["normalized_error"])
 
                     # Error processing (batch)
                     # =========================
@@ -78,7 +82,12 @@ def run(config, _id, logger):
                     E_seq, E_seq_scores = err.process_errors(y_test, y_hat, e_s, anom, logger)
                     anom['scores'] = E_seq_scores
 
+                    precision, recall, f1 = err.evaluate_sequences_new_metric(E_seq, anom, logger)  # metric in NeurIPS'18 paper
+                    mean_precision += precision
+                    mean_recall += recall
+                    mean_f1 += f1
                     anom = err.evaluate_sequences(E_seq, anom)
+
                     anom["num_values"] = y_test.shape[0] + config.l_s + config.n_predictions
 
                     for key, value in stats.items():
@@ -86,17 +95,16 @@ def run(config, _id, logger):
 
                     helpers.anom_stats(stats, anom, logger)
                     writer.writerow(anom)
-
+            mean_precision /= num_streams
+            mean_recall /= num_streams
+            mean_f1 /= num_streams
+            logger.info(f'Avg precision: {mean_precision:.6f}, avg recall: {mean_recall:.6f}, avg f1: {mean_f1:.6f}')
     helpers.final_stats(stats, logger)
 
 
 if __name__ == "__main__":
     config = Config("config.yaml")
     _id = dt.now().strftime("%Y-%m-%d_%H.%M.%S")
-    helpers.make_dirs(_id)  
+    helpers.make_dirs(_id)
     logger = helpers.setup_logging(config, _id)
     run(config, _id, logger)
-
-
-
-    

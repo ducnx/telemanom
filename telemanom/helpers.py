@@ -13,19 +13,19 @@ import glob
 
 config = Config("config.yaml")
 
+
 def make_dirs(_id):
     '''Create directories for storing data in repo (using datetime ID) if they don't already exist'''
 
     if not config.train or not config.predict:
-        if not os.path.isdir('data/%s' %config.use_id):
+        if not os.path.isdir('data/%s' % config.use_id):
             raise ValueError("Run ID %s is not valid. If loading prior models or predictions, must provide valid ID.")
 
-    paths = ['data', 'data/%s' %_id, 'data/%s/models' %_id, 'data/%s/smoothed_errors' %_id, 'data/%s/y_hat' %_id]
+    paths = ['data', 'data/%s' % _id, 'data/%s/models' % _id, 'data/%s/smoothed_errors' % _id, 'data/%s/y_hat' % _id]
 
     for p in paths:
         if not os.path.isdir(p):
             os.mkdir(p)
-
 
 
 def setup_logging(config, _id):
@@ -39,8 +39,8 @@ def setup_logging(config, _id):
         _id (str): Unique identifier generated from datetime for storing data/models/results
     '''
 
-    logger =  logging.getLogger('telemanom')
-    hdlr = logging.FileHandler('data/%s/params.log' %_id)
+    logger = logging.getLogger('telemanom')
+    hdlr = logging.FileHandler('data/%s/params.log' % _id)
     formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     hdlr.setFormatter(formatter)
     logger.addHandler(hdlr)
@@ -52,13 +52,12 @@ def setup_logging(config, _id):
 
     logger.info("Runtime params:")
     logger.info("----------------")
-    for attr in dir(config):    
+    for attr in dir(config):
         if not "__" in attr and not attr in ['header', 'date_format', 'path_to_config', 'build_group_lookup']:
-            logger.info('%s: %s' %(attr, getattr(config, attr)))
+            logger.info('%s: %s' % (attr, getattr(config, attr)))
     logger.info("----------------\n")
 
     return logger
-
 
 
 def load_data(anom):
@@ -101,24 +100,24 @@ def shape_data(arr, train=True):
             shape = [timesteps, n_predictions, 1)
         l_s (int): sequence length to be passed to test shaping (if shaping train) so they are consistent
     '''
-    
+
     # print("LEN ARR: %s" %len(arr))
 
-    data = [] 
+    data = []
     for i in range(len(arr) - config.l_s - config.n_predictions):
         data.append(arr[i:i + config.l_s + config.n_predictions])
-    data = np.array(data) 
+    data = np.array(data)
 
     assert len(data.shape) == 3
 
     if train == True:
         np.random.shuffle(data)
 
-    X = data[:,:-config.n_predictions,:]
-    y = data[:,-config.n_predictions:,0] #telemetry value is at position 0
+    X = data[:, :-config.n_predictions, :]
+    y = data[:, -config.n_predictions:, 0]  # telemetry value is at position 0
 
     return X, y
-    
+
 
 def final_stats(stats, logger):
     '''Log final stats at end of experiment.
@@ -130,12 +129,14 @@ def final_stats(stats, logger):
 
     logger.info("Final Totals:")
     logger.info("-----------------")
-    logger.info("True Positives: %s " %stats["true_positives"])
-    logger.info("False Positives: %s " %stats["false_positives"])
-    logger.info("False Negatives: %s\n" %stats["false_negatives"])
+    logger.info("True Positives: %s " % stats["true_positives"])
+    logger.info("False Positives: %s " % stats["false_positives"])
+    logger.info("False Negatives: %s\n" % stats["false_negatives"])
     try:
-        logger.info("Precision: %s" %(float(stats["true_positives"])/float(stats["true_positives"]+stats["false_positives"])))
-        logger.info("Recall: %s" %(float(stats["true_positives"])/float(stats["true_positives"]+stats["false_negatives"])))
+        logger.info("Precision: %s" % (
+                    float(stats["true_positives"]) / float(stats["true_positives"] + stats["false_positives"])))
+        logger.info(
+            "Recall: %s" % (float(stats["true_positives"]) / float(stats["true_positives"] + stats["false_negatives"])))
     except:
         logger.info("Precision: NaN")
         logger.info("Recall: NaN")
@@ -150,11 +151,10 @@ def anom_stats(stats, anom, logger):
         logger (obj): logging object
     '''
 
-    logger.info("TP: %s  FP: %s  FN: %s" %(anom["true_positives"], anom["false_positives"], anom["false_negatives"]))
-    logger.info('Total true positives: %s' %stats["true_positives"])
-    logger.info('Total false positives: %s' %stats["false_positives"])
-    logger.info('Total false negatives: %s\n' %stats["false_negatives"])
-
+    logger.info("TP: %s  FP: %s  FN: %s" % (anom["true_positives"], anom["false_positives"], anom["false_negatives"]))
+    logger.info('Total true positives: %s' % stats["true_positives"])
+    logger.info('Total false positives: %s' % stats["false_positives"])
+    logger.info('Total false negatives: %s\n' % stats["false_negatives"])
 
 
 def view_results(results_fn, plot_errors=True, plot_train=False, rows=None):
@@ -179,12 +179,11 @@ def view_results(results_fn, plot_errors=True, plot_train=False, rows=None):
             color = 'red'
         elif range_type == 'predicted':
             color = 'blue'
-        
+
         shapes = []
         if len(ranges) > 0:
-        
-            for r in ranges:
 
+            for r in ranges:
                 shape = {
                     'type': 'rect',
                     'x0': r[0],
@@ -197,12 +196,10 @@ def view_results(results_fn, plot_errors=True, plot_train=False, rows=None):
                         'width': 0,
                     },
                 }
-            
+
                 shapes.append(shape)
-            
+
         return shapes
-
-
 
     vals = {}
 
@@ -231,23 +228,23 @@ def view_results(results_fn, plot_errors=True, plot_train=False, rows=None):
 
             # Info
             # ================================================================================================
-            if reader.line_num - 1 >= row_start and reader.line_num -1 <= row_end:
-                print("Spacecraft: %s" %anom['spacecraft'])
-                print("Channel: %s" %anom["chan_id"])
-                print('Normalized prediction error: %.3f' %float(anom['normalized_error']))
-                print('Anomaly class(es): %s' %anom['class'])
+            if reader.line_num - 1 >= row_start and reader.line_num - 1 <= row_end:
+                print("Spacecraft: %s" % anom['spacecraft'])
+                print("Channel: %s" % anom["chan_id"])
+                print('Normalized prediction error: %.3f' % float(anom['normalized_error']))
+                print('Anomaly class(es): %s' % anom['class'])
                 print("------------------")
-                print('True Positives: %s' %anom['true_positives'])
-                print("False Positives: %s" %anom["false_positives"])
-                print("False Negatives: %s" %anom["false_negatives"])
+                print('True Positives: %s' % anom['true_positives'])
+                print("False Positives: %s" % anom["false_positives"])
+                print("False Negatives: %s" % anom["false_negatives"])
                 print("------------------")
-                print('Predicted anomaly scores: %s' %anom['scores'])
-                print("Number of values: %s"%len(vals[chan]["test"]))
+                print('Predicted anomaly scores: %s' % anom['scores'])
+                print("Number of values: %s" % len(vals[chan]["test"]))
 
                 # Extract telemetry values from test data
                 # ================================================================================================
 
-                y_test = np.array(vals[chan]['test'])[:,0] 
+                y_test = np.array(vals[chan]['test'])[:, 0]
 
                 # Create highlighted regions (red = true anoms / blue = predicted anoms)
                 # ================================================================================================
@@ -255,7 +252,7 @@ def view_results(results_fn, plot_errors=True, plot_train=False, rows=None):
                 y_shapes += create_shapes(eval(anom['tp_sequences']) + eval(anom['fp_sequences']), "predicted", -1, 1)
 
                 e_shapes = create_shapes(eval(anom['anomaly_sequences']), "true", 0, max(vals[chan]['smoothed_errors']))
-                e_shapes += create_shapes(eval(anom['tp_sequences']) + eval(anom['fp_sequences']), "predicted", 
+                e_shapes += create_shapes(eval(anom['tp_sequences']) + eval(anom['fp_sequences']), "predicted",
                                           0, max(vals[chan]['smoothed_errors']))
 
                 # Move data into dataframes and plot with Plotly
@@ -280,20 +277,17 @@ def view_results(results_fn, plot_errors=True, plot_train=False, rows=None):
                 y_layout = {
                     'title': "y / y_hat comparison",
                     'shapes': y_shapes,
-                } 
+                }
 
                 e_layout = {
                     'title': "Smoothed Errors (e_s)",
                     'shapes': e_shapes,
-                } 
+                }
 
                 if plot_train:
                     train_df.iplot(kind='scatter', color='green')
-                
+
                 y_df.iplot(kind='scatter', layout=y_layout)
-                
+
                 if plot_errors:
                     e_df.iplot(kind='scatter', layout=e_layout, color='red')
-
-
-

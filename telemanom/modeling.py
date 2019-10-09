@@ -1,14 +1,16 @@
-from keras.models import Sequential, load_model
-from keras.callbacks import History, EarlyStopping, Callback
-from keras.layers.recurrent import LSTM
-from keras.layers.core import Dense, Activation, Dropout
-import numpy as np
 import os
+
+import numpy as np
+from keras.callbacks import History, EarlyStopping
+from keras.layers.core import Dense, Activation, Dropout
+from keras.layers.recurrent import LSTM
+from keras.models import Sequential, load_model
+
 from telemanom._globals import Config
 
-#config
+# config
 config = Config("config.yaml")
-os.environ['TF_CPP_MIN_LOG_LEVEL']='2' # suppress tensorflow CPU speedup warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # suppress tensorflow CPU speedup warnings
 
 
 def get_model(anom, X_train, y_train, logger, train=False):
@@ -29,14 +31,15 @@ def get_model(anom, X_train, y_train, logger, train=False):
         logger.info("Loading pre-trained model")
         return load_model(os.path.join("data", config.use_id, "models", anom["chan_id"] + ".h5"))
 
-    elif (not train and not os.path.exists(os.path.join("data", config.use_id, "models", anom["chan_id"] + ".h5"))) or train:
-        
+    elif (not train and not os.path.exists(
+            os.path.join("data", config.use_id, "models", anom["chan_id"] + ".h5"))) or train:
+
         if not train:
             logger.info("Training new model from scratch.")
 
-        cbs = [History(), EarlyStopping(monitor='val_loss', patience=config.patience, 
-            min_delta=config.min_delta, verbose=0)]
-        
+        cbs = [History(), EarlyStopping(monitor='val_loss', patience=config.patience,
+                                        min_delta=config.min_delta, verbose=0)]
+
         model = Sequential()
 
         model.add(LSTM(
@@ -54,15 +57,13 @@ def get_model(anom, X_train, y_train, logger, train=False):
             config.n_predictions))
         model.add(Activation("linear"))
 
-        model.compile(loss=config.loss_metric, optimizer=config.optimizer) 
+        model.compile(loss=config.loss_metric, optimizer=config.optimizer)
 
-        model.fit(X_train, y_train, batch_size=config.lstm_batch_size, epochs=config.epochs, 
-            validation_split=config.validation_split, callbacks=cbs, verbose=True)
+        model.fit(X_train, y_train, batch_size=config.lstm_batch_size, epochs=config.epochs,
+                  validation_split=config.validation_split, callbacks=cbs, verbose=True)
         model.save(os.path.join("data", anom['run_id'], "models", anom["chan_id"] + ".h5"))
 
         return model
-
-
 
 
 def predict_in_batches(y_test, X_test, model, anom):
@@ -83,15 +84,15 @@ def predict_in_batches(y_test, X_test, model, anom):
 
     num_batches = int((y_test.shape[0] - config.l_s) / config.batch_size)
     if num_batches < 0:
-        raise ValueError("l_s (%s) too large for stream with length %s." %(config.l_s, y_test.shape[0]))
+        raise ValueError("l_s (%s) too large for stream with length %s." % (config.l_s, y_test.shape[0]))
 
     # simulate data arriving in batches
-    for i in range(1, num_batches+2):
-        prior_idx = (i-1) * config.batch_size
+    for i in range(1, num_batches + 2):
+        prior_idx = (i - 1) * config.batch_size
         idx = i * config.batch_size
-        if i == num_batches+1:
-            idx = y_test.shape[0] #remaining values won't necessarily equal batch size
-        
+        if i == num_batches + 1:
+            idx = y_test.shape[0]  # remaining values won't necessarily equal batch size
+
         X_test_period = X_test[prior_idx:idx]
 
         y_hat_period = model.predict(X_test_period)
@@ -99,19 +100,18 @@ def predict_in_batches(y_test, X_test, model, anom):
         # map predictions n steps ahead to their corresponding timestep
         # TODO: vectorize
         final_y_hat = []
-        for t in range(len(y_hat_period)+config.n_predictions):
+        for t in range(len(y_hat_period) + config.n_predictions):
             y_hat_t = []
             for j in range(config.n_predictions):
-                if t - j >= 0 and t-j < len(y_hat_period):
-                    y_hat_t.append(y_hat_period[t-j][j])
+                if t - j >= 0 and t - j < len(y_hat_period):
+                    y_hat_t.append(y_hat_period[t - j][j])
             if t < len(y_hat_period):
                 if y_hat_t.count(0) == len(y_hat_t):
                     final_y_hat.append(0)
                 else:
-                    final_y_hat.append(y_hat_t[0]) # first prediction
+                    final_y_hat.append(y_hat_t[0])  # first prediction
 
-
-        y_hat_period = np.array(final_y_hat).reshape(len(final_y_hat),1)
+        y_hat_period = np.array(final_y_hat).reshape(len(final_y_hat), 1)
         y_hat = np.append(y_hat, y_hat_period)
 
     y_hat = np.reshape(y_hat, (y_hat.size,))
